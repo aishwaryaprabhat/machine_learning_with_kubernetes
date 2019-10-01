@@ -1,3 +1,6 @@
+# Machine Learning with Kubernetes
+![](readme_images/k8sgif.gif)
+
 ## What this tutorial covers:
 1. Architecture
 2. Pod
@@ -170,7 +173,13 @@ spec:
 - We can monitor the rolling update using `kubectl get pods -w`. You should see something like this:
 ![](readme_images/rolling.png)
 - A neat trick to use to tag your Docker images is to use the SHA string corresonding to your git commit. That way there is a clear link between the pushed code and version of the image created as a consequence
-- We can also run `kubectl rollout status deployment/example-deployment-randomforest` to keep track of the rolling update process
+- We can also run `kubectl rollout status deployment/example-deployment-randomforest` to keep track of the rolling update process. You should see something like this:
+![](readme_images/roll2.png)
+- We can also check the image running on the pods using `kubectl get pods -o jsonpath="{..image}" |tr -s '[[:space:]]' '\n' |sort |uniq -c`
+- We can use `kubectl rollout history deployment/example-deployment-randomforest`. We can increase the number of revisions that kubernetes keeps by editing the specs paramaters in the deployment.yaml file. You should see something like this:
+![](readme_images/roll3.png)
+- We can rollback the update by using `kubectl rollout undo deployment/example-deployment-randomforest`
+
 
 
 ### Useful commands
