@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: example-replicacontroller-randomforest
+spec:
+  replicas: 5
+  selector:
+    app: rc-randomforest 
+  template:
+    metadata:
+      labels:
+        app: rc-randomforest 
+    spec:
+      containers:
+        - name: simple-randomforest
+          image: aishpra/simple-randomforest
+          ports:
+          - containerPort: 5000

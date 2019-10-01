@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+    name: example-pod-randomforest
+    labels:
+      app: random-forest-app
+spec:
+  containers:
+    - name: simple-randomforest
+      image: aishpra/simple-randomforest
+      ports:
+        - containerPort: 5000
