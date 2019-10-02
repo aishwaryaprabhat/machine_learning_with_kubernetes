@@ -1,29 +1,44 @@
 # Machine Learning with Kubernetes
 ![](readme_images/k8sgif.gif)
 
-## What this tutorial covers:
-1. Architecture
+## Overview
+
+### What this tutorial covers:
+1. Kubernetes Overview
+	- Mapping from Docker Compose to Kubernetes
+	- Intro
+	- Architecture
 2. Pod
 2. Replication controller
-3. Deployment - how to update image in a deployment - healthcheck, 
-4. Services - NodePort, ClusterIP, Loadbalancer, Ingress
-5. Volumes - PVC, PV
-6. Service Discovery???
+3. Deployment
+	- Updating an image in a deployment
+4. Labels
+5. Healthcheks
+	- Liveness Probe
+	- Readiness Probe
+	- Startup Probe
+
+-----
+5. Services 
+	- NodePort
+	- ClusterIP
+	- Loadbalancer
+	- Ingress
+	- Service Discovery
+5. Volumes
 7. ConfigMap
 8. Namespaces
-
-
----
 8. StatefulSets
 9. DaemonSets
-10. Resource Usage monitoring
-11. Autoscaling
+10. Autoscaling
 12. Affinity
+
+----
+10. Resource Usage monitoring
 13. Taints and tolerations
 14. Custom resource definitions
 15. Operators
 16. Resource Quotas
-17. Namespaces
 18. User Management + RBAC
 19. Node maintenance
 20. High availability
@@ -44,13 +59,46 @@
 -  Kubernetes clusters can start with one node and be scaled to thousands of nodes
 -  'Competitors': docker swarm, mesos
 
-### Difference between Kubernetes and Docker Compose
+### Mapping from Docker Compose to Kubernetes
+![](readme_images/map.png)
 
 ### Kubernetes Architecture
+
+![](readme_images/archi1.png)
+
+- Master Node: responsible for the overall management of the Kubernetes cluster
+- API Server: allows users and objects in Kubernetes to talk to the K8s API. It is the 'front-end' of the K8s control plane
+- Scheduler: watches for newly created Pods that have no Node assigned. For every Pod that the scheduler discovers, the scheduler becomes responsible for finding the best Node for that Pod to run on
+- Controller Manager: runs controllers. Controllers are background threads whose main duty is to react to changes to the cluster's desired state and actual state to do whatever you can to update the latter so that it matches the former
+- etcd: distributed key-value store that acts as K8s' database. Some examples of the info stored are: scheduling information, pod state information etc
+- kubectl: CLI for users to interact with the cluster through the API server. It has a kubeconfig file that holds onto authentication information etc.
+
+![](readme_images/archi2.png)
+
+- Worker Node: nodes where applications operate. Can be a physical server or VM
+- kubelet: handles communication between the worker node and master node via the api server, checks if pods have been assigned to its corresponding node, executes pod containers using the container engine, mounts and runs pod volumes and secrets. It is aware of pod and node states and responds back to the master
+- docker: container engine running on the worker nodes
+- kube-proxy: handles routing for packets and performs connection forwarding. Worker nodes are exposed to connections from the 'outside world' through the kube-proxy (via a loadbalancer)
+
+
+### Minikube
+
+Another way of looking at the overall architecture:
+![](readme_images/overarchi.png)
+Lightweight Kubernetes implementation that creates a VM on your local machine and deploys a simple cluster containing only one node. Follow instructions for here for [installation](https://kubernetes.io/docs/tasks/tools/install-minikube/)
+
+![](readme_images/minikube.png)
+
+
 
 ## Pod
 
 ### What is a pod?
+- A pod is a smallest unit object in K8s. 
+- It is a grouping of containers with a common purpose. 
+- In K8s we don't deal with one naked single container by itself. 
+- The smallest thing we can deploy is a pod. A pod must have 1 or more contianers inside of it. 
+- Containers in a pod should be tightly related to each other. 
 
 `src/pod-randomforest.yml`
 
@@ -68,6 +116,16 @@ spec:
       ports:
         - containerPort: 5000
 ```
+- apiVersion: scopes or limits the types of objects we can use in a given config file
+- kind: type of object that is being defined in the config file, in this case a Pod
+- metadata: all the information about the pod itself
+	- name: tag used for kubectl and logging etc.
+	- labels: refer to section on labels
+- containers: the config of the containers inside the pod
+	- name: is a tag used to refer to the specific container, useful for tagging and networking
+	- image: the image that the container is going to be made out of
+	- ports: config related to ports of the container
+		- containerPort: the port of the container that will be exposed
 
 - Then we run `kubectl apply -f src/pod-randomforest.yml`
 - Then we use port forwarding to access the pod using `kubectl port-forward example-pod-randomforest 5000:5000`
@@ -130,6 +188,8 @@ You will see something like this when you run `kubectl get pods`:
 - When a change is made in the deployment config, either the pods are altered or killed and a new one created
 
 ### Deployment vs Replication Controller
+- Deployments are a newer and higher level concept than Replication Controllers
+- They manage the deployment of Replica Sets (also a newer concept, but pretty much equivalent to Replication Controllers), and allow for easy updating of a Replica Set as well as the ability to roll back to a previous deployment.
 
 `src/deployment-randomforest.yml`
 
@@ -157,6 +217,14 @@ spec:
           - containerPort: 5000
 ```
 
+- apiVersion: scopes or limits the types of objects we can use in a given config file
+- kind: type of object that is being defined in the config file, in this case a Deployment
+- metadata: all the information about the deployment itself
+- spec: specifications related tp tje deployment
+	- replicas: number of identical pods to create
+	- selector and labels: handles for 'connecting' deployment and pod
+	- template: template of the pod
+
 - Run `kubectl apply -f src/deployment-randomforest.yml`
 - Run `kubectl get ...` to check the state of the cluster
 - We can run `kubectl port-forward deployment/example-deployment-randomforest 5000:5000` to test if the app is running
@@ -164,17 +232,17 @@ spec:
 
 ![](readme_images/dep1.png)
 
-### Updating a Container Image in a Deployment
+### Updating a Container Image in a Deployment (Rolling Update)
 
 - We can update the container image using the command `kubectl set image deployment/<deployment-name> <container-name>=<new-image>`
-- For this example we will run the command `kubectl set image deployment/example-deployment-randomforest simple-randomforest=aishpra/simple-randomforest:v2`
+- For this example we will run the command `kubectl set image deployment/example-deployment-randomforest simple-randomforest=aishpra/simple-randomforest:v2`. You can check the docker images used in this example [here](https://hub.docker.com/r/aishpra/simple-randomforest/tags).
 - We can monitor the rolling update using `kubectl get pods -w`. You should see something like this:
 ![](readme_images/rolling.png)
 - A neat trick to use to tag your Docker images is to use the SHA string corresonding to your git commit. That way there is a clear link between the pushed code and version of the image created as a consequence
 - We can also run `kubectl rollout status deployment/example-deployment-randomforest` to keep track of the rolling update process. You should see something like this:
 ![](readme_images/roll2.png)
 - We can also check the image running on the pods using `kubectl get pods -o jsonpath="{..image}" |tr -s '[[:space:]]' '\n' |sort |uniq -c`
-- We can use `kubectl rollout history deployment/example-deployment-randomforest`. We can increase the number of revisions that kubernetes keeps by editing the specs paramaters in the deployment.yaml file. You should see something like this:
+- We can use `kubectl rollout history deployment/example-deployment-randomforest`. We can increase the number of revisions that kubernetes keeps by editing the specs paramaters in the deployment.yml file. You should see something like this:
 ![](readme_images/roll3.png)
 - We can rollback the update by using `kubectl rollout undo deployment/example-deployment-randomforest`
 
@@ -184,7 +252,7 @@ spec:
 ![](readme_images/dep2.png)
 
 
-### Labels
+## Labels
 
 - Labels are key-value pairs that can be attached to objects
 - You can label your objects, for instance your deployment, to follow some sort of a structure. For example:
@@ -351,6 +419,16 @@ spec:
 ```
 
 - We can runrun `kubectl apply -f src/healthcheck-rf.yml` and then `kubectl get pods -w` and you should see something like this: ![](readme_images/hc6.png)
+
+(remember to run `kubectl delete deployments ...` to delete current deployment and pods to get ready for next parts of the tutorial)
+
+
+### Startup Probe
+
+- The kubelet uses startup probes to know when a Container application has started. 
+- If such a probe is configured, it disables liveness and readiness checks until it succeeds, making sure those probes don’t interfere with the application startup. 
+- This can be used to adopt liveness checks on slow starting containers, avoiding them getting killed by the kubelet before they are up and running.
+
 
 
 
