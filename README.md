@@ -50,11 +50,9 @@
 
 ## Pod
 
-### Ensuring app is working and image is pushed
-
 ### What is a pod?
 
-`pod-randomforest.yml`
+`src/pod-randomforest.yml`
 
 ```
 apiVersion: v1
@@ -71,7 +69,7 @@ spec:
         - containerPort: 5000
 ```
 
-- Then we run `kubectl apply -f pod-randomforest.yml`
+- Then we run `kubectl apply -f src/pod-randomforest.yml`
 - Then we use port forwarding to access the pod using `kubectl port-forward example-pod-randomforest 5000:5000`
 - We can kill the pod using `kubectl delete pods <pod-name>`
 
@@ -112,7 +110,7 @@ spec:
           - containerPort: 5000
 ```
 
-- Then we can run `kubectl apply -f replicacontroller-randomforest.yml` 
+- Then we can run `kubectl apply -f src/replicacontroller-randomforest.yml` 
 - We can check the pods using `kubectl get pods`. You should see something like this:
 ![](readme_images/rc1.png)
 - We can check the replicationcontroller by running `kubectl get replicationcontrollers`. You should see something like this 
@@ -133,7 +131,7 @@ You will see something like this when you run `kubectl get pods`:
 
 ### Deployment vs Replication Controller
 
-`deployment-randomforest.yml`
+`src/deployment-randomforest.yml`
 
 ```
 apiVersion: apps/v1
@@ -159,7 +157,7 @@ spec:
           - containerPort: 5000
 ```
 
-- Run `kubectl apply -f deployment-randomforest.yml`
+- Run `kubectl apply -f src/deployment-randomforest.yml`
 - Run `kubectl get ...` to check the state of the cluster
 - We can run `kubectl port-forward deployment/example-deployment-randomforest 5000:5000` to test if the app is running
 - Run `kubectl delete deployments <name-of-deployment>` to kill the deployment and associated pods
@@ -180,13 +178,192 @@ spec:
 ![](readme_images/roll3.png)
 - We can rollback the update by using `kubectl rollout undo deployment/example-deployment-randomforest`
 
-
+(remember to run `kubectl delete deployments ...` to delete current deployment and pods to get ready for next parts of the tutorial)
 
 ### Useful commands
 ![](readme_images/dep2.png)
 
 
-## Services
+### Labels
+
+- Labels are key-value pairs that can be attached to objects
+- You can label your objects, for instance your deployment, to follow some sort of a structure. For example:
+	- Key: environment - Value: dev/test/live
+	- Key: team - Value: mt, listing, fraud
+- Labels are not unique and multiple labels can be added to one object
+- Once labels are attached to an object, you can use filters to narrow down results (Label Selectors)
+- Using label selectors you can use matching expressions to match labels
+	- eg: environment = test or live
+
+#### NodeSelector
+- You can use labels to tag nodes
+- Once nodes are tagged you can use label selectors to let pods run only on specific nodes. Eg: run on fraud test servers
+- To run pods on specific nodes:
+	- Tag the node using `kubectl label nodes minikube project=listingqc`
+	- We can run `kubectl get nodes --show-labels` to view the labels of each node
+	- Add nodeSelector to your config (`src/deployment-rf-nodeselector.yml`)
+	
+	```
+	apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-deployment-randomforest
+  labels:
+    app: dep-randomforest
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dep-randomforest
+  template:
+    metadata:
+      labels:
+        app: dep-randomforest
+    spec:
+      containers:
+        - name: simple-randomforest
+          image: aishpra/simple-randomforest
+          ports:
+          - containerPort: 5000
+      nodeSelector:
+        project: listingqc
+	```
+and then we run `kubectl apply -f src/deployment-rf-nodeselector.yml`
+
+(remember to run `kubectl delete deployments ...` to delete current deployment and pods to get ready for next parts of the tutorial)
+
+
+## Health Checks
+
+- If your application malfunctions, the pod and container can still be running but the application may not work anymore
+- To detect and resolve problems with your application, you can run health checks
+- You can run 2 different types of health checks
+	- Running a command in the container periodically
+	- Periodic checks on a particular URL
+- The typical production application behind a load balancer should always have health checks implemented in some way to ensure availability and resiliency of the app
+
+
+### Liveness Probe
+- Scenario: Deployment is running fine, pods are running fine, containers are running fine but the app in the container is not running fine
+- The kubelet uses liveness probes to know when to restart a Container. 
+- For example, liveness probes could catch a deadlock, where an application is running, but unable to make progress. Restarting a Container in such a state can help to make the application more available despite bugs.
+- Another exaple: in the event that a container is accepting requests and then one particular request causes the container to crash, then kubernetes will restart the container
+`src/healthcheck-rf.yml`
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-deployment-randomforest-healthcheck
+  labels:
+    app: dep-randomforest
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dep-randomforest
+  template:
+    metadata:
+      labels:
+        app: dep-randomforest
+    spec:
+      containers:
+        - name: simple-randomforest
+          image: aishpra/simple-randomforest
+          ports:
+          - name: flask-port
+            containerPort: 5000
+          livenessProbe:
+            httpGet:
+              path: /predict?s_length=1&s_width=2&p_length=3&p_width=4
+              port: flask-port
+            initialDelaySeconds: 15
+            timeoutSeconds: 30
+
+```
+- We can see the configuration for this livenessProbe when we run `kubectl describe pods` and `kubectl get pods`. You should see something like this ![](readme_images/hc1.png) ![](readme_images/hc2.png) ![](readme_images/hc3.png)
+
+- If we mess up the config a bit and run `kubectl apply -f src/healthcheck-rf.yml`
+
+```
+      containers:
+        - name: simple-randomforest
+          image: aishpra/simple-randomforest
+          ports:
+          - name: flask-port
+            containerPort: 5000
+          livenessProbe:
+            httpGet:
+              path: /predict
+              port: flask-port
+            initialDelaySeconds: 15
+            timeoutSeconds: 30
+```
+- ...and then we run `kubectl describe pods` and `kubectl get pods` we'll see ![](readme_images/hc4.png)
+![](readme_images/hc5.png)
+
+
+### Readiness Probe
+
+- Scenario: Even though the livenessProbe helps to restart containers in the event of a crash, we don't yet have a way to check for such faulty containers
+- Readiness Probes indicate whether the container is ready to serve requests
+- If the check fails, the container will not be restarted but the Pod's IP address will be removed from the Service, so it will not serve any requests anymore
+- The readiness test will make sure at startup that the pod will only receive traffic when the test succeeds
+
+`src/healthcheck-rf.yml`
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-deployment-randomforest-healthcheck
+  labels:
+    app: dep-randomforest
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dep-randomforest
+  template:
+    metadata:
+      labels:
+        app: dep-randomforest
+    spec:
+      containers:
+        - name: simple-randomforest
+          image: aishpra/simple-randomforest
+          ports:
+          - name: flask-port
+            containerPort: 5000
+          livenessProbe:
+            httpGet:
+              path: /predict?s_length=1&s_width=2&p_length=3&p_width=4
+              port: flask-port
+            initialDelaySeconds: 15
+            timeoutSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /predict?s_length=1&s_width=2&p_length=3&p_width=4
+              port: flask-port
+            initialDelaySeconds: 15
+            timeoutSeconds: 30
+
+```
+
+- We can runrun `kubectl apply -f src/healthcheck-rf.yml` and then `kubectl get pods -w` and you should see something like this: ![](readme_images/hc6.png)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

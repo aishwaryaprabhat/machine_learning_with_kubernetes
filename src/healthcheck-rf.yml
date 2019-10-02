@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-deployment-randomforest-healthcheck
+  labels:
+    app: dep-randomforest
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dep-randomforest
+  template:
+    metadata:
+      labels:
+        app: dep-randomforest
+    spec:
+      containers:
+        - name: simple-randomforest
+          image: aishpra/simple-randomforest
+          ports:
+          - name: flask-port
+            containerPort: 5000
+          livenessProbe:
+            httpGet:
+              path: /predict?s_length=1&s_width=2&p_length=3&p_width=4
+              port: flask-port
+            initialDelaySeconds: 15
+            timeoutSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /predict?s_length=1&s_width=2&p_length=3&p_width=4
+              port: flask-port
+            initialDelaySeconds: 15
+            timeoutSeconds: 30

@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-deployment-randomforest
+  labels:
+    app: dep-randomforest
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dep-randomforest
+  template:
+    metadata:
+      labels:
+        app: dep-randomforest
+    spec:
+      containers:
+        - name: simple-randomforest
+          image: aishpra/simple-randomforest
+          ports:
+          - containerPort: 5000
+      nodeSelector:
+        project: listingqc
