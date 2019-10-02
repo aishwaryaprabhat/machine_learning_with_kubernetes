@@ -115,6 +115,7 @@ spec:
       image: aishpra/simple-randomforest
       ports:
         - containerPort: 5000
+    
 ```
 - apiVersion: scopes or limits the types of objects we can use in a given config file
 - kind: type of object that is being defined in the config file, in this case a Pod
