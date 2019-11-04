@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-rf-deployment
+  labels:
+    app: stateful-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stateful-redis
+  template:
+    metadata:
+      labels:
+        app: stateful-redis
+    spec:
+      containers:
+        - name: redis-rf-container
+          image: redis
+          ports:
+          - containerPort: 6379
+  volumeClaimTemplates:
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+

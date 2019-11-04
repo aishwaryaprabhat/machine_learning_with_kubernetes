@@ -3,19 +3,19 @@ kind: Deployment
 metadata:
   name: example-deployment-randomforest
   labels:
-    app: dep-randomforest
+    app: dep-randomforest-redis
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: dep-randomforest
+      app: dep-randomforest-redis
   template:
     metadata:
       labels:
-        app: dep-randomforest
+        app: dep-randomforest-redis
     spec:
       containers:
-        - name: simple-randomforest
-          image: aishpra/simple-randomforest
+        - name: rf-with-redis
+          image: aishpra/rf-redis:clusteripdemo2
           ports:
           - containerPort: 5000

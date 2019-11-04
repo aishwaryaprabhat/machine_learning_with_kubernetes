@@ -1,0 +1,19 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: rf-ingress-service
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingess.kubernetes.io/rewrite-target: /apidocs/
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /redis/
+            backend:
+              serviceName: rf-redis-clusterip
+              servicePort: 5000
+          - path: /simple/
+            backend:
+              serviceName: rf-clusterip
+              servicePort: 5000

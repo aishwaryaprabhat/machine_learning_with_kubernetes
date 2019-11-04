@@ -12,11 +12,17 @@ app = Flask(__name__)
 swagger = Swagger(app)
 
 
-redis_host = "redis-server"
+redis_host = "redis-clusterip"
 redis_port = 6379
 redis_password = ""
 
 prediction_index = 0
+
+@app.route('/')
+def landing_page():
+
+    return ("Welcome to redis randomforest landing page!")
+
 
 @app.route('/predict')
 def predict_iris():
@@ -54,12 +60,16 @@ def predict_iris():
     prediction = model.predict(np.array([[s_length, s_width, p_length, p_width]]))
     # print(prediction)
 
-    r = redis.StrictRedis(host=redis_host, port=redis_port, password=redis_password, decode_responses=True)
-    r.set(str(prediction_index),str(prediction))
-    prediction_index+=1
-    
-    print("Returning Prediction")
-    return str(prediction)
+    try:
+        r = redis.StrictRedis(host=redis_host, port=redis_port, password=redis_password, decode_responses=True)
+        r.set(str(prediction_index),str(prediction))
+        prediction_index+=1
+        
+        print("Returning Prediction")
+        return str(prediction)
+    except Exception as e:
+        return str(e)
+
 
 @app.route('/predict_file', methods=["POST"])
 def predict_iris_file():

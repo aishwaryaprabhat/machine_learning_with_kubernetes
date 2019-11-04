@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-rf-deployment
+  labels:
+    app: redis-rf
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-rf
+  template:
+    metadata:
+      labels:
+        app: redis-rf
+    spec:
+      containers:
+        - name: redis-rf-container
+          image: redis
+          ports:
+          - containerPort: 6379

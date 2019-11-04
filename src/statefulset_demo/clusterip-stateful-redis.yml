@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-clusterip
+spec:
+  type: ClusterIP 
+  selector:
+    app: stateful-redis
+  ports:
+    - port: 6379
+      targetPort: 6379
