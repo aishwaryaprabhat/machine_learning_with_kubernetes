@@ -117,6 +117,7 @@ spec:
         - containerPort: 5000
     
 ```
+
 - apiVersion: scopes or limits the types of objects we can use in a given config file
 - kind: type of object that is being defined in the config file, in this case a Pod
 - metadata: all the information about the pod itself
@@ -127,7 +128,6 @@ spec:
 	- image: the image that the container is going to be made out of
 	- ports: config related to ports of the container
 		- containerPort: the port of the container that will be exposed
-
 - Then we run `kubectl apply -f src/pods_and_deployments/pod-randomforest.yml`
 - Then we use port forwarding to access the pod using `kubectl port-forward example-pod-randomforest 5000:5000`
 - We can kill the pod using `kubectl delete pods <pod-name>`
@@ -727,6 +727,13 @@ spec:
               servicePort: 5000
 ```
 
+### Service Discovery
+- DNS is a built-in service launched automatically
+- The DNS service can be used within pods to find other services running on the same cluster
+- Multiple containers within 1 pod don't need this service as they can contact each other directly
+	- A ontainer in the same pod can connect to the port of other container directly using localhost:port
+- To make DNS work, a pod will need a service definition
+
 ## Namespaces
 - Namespaces allow you to create virtual clusters within the same physical cluster
 - Namespaces logically segmentize your cluster
@@ -743,6 +750,7 @@ export CONTEXT=$(kubectl config view | awk '/current-context/{print $2}')
 kubectl config set-context $CONTEXT --namespace=myspace
 ```
 - Your corresponding deployment will look like this:
+
 ```
 apiVersion: apps/v1
 kind: Deployment
@@ -784,18 +792,28 @@ kubectl create secret docker-registry gcp-cred \
 
 ## ConfigMap
 
-- Configuration 
+-  Configuraiton paramaters that are not secret can be put in a ConfigMap
+-  The input is key-value pairs
+-  The ConfigMap key-value pairs can be read by the app using:
+	-  Environment variables
+	-  COntainer commandline arguments in the Pod configuration
+	-  Using volumes
+- A ConfigMap can also container full configuration files. eg: a webserver config file
+- This file can then be mounted using volumes where the application expects its config file
+- This way you can inject configuration settings into containers without chainging the container itself
+
+```
+cat <<EOF > myconfig
+database=postgres
+otherparams=xyz
+param.with.hierarchy=abc
+EOF
+
+kubectl create configmap app-config --from-file=myconfig
+```
 
 
-
-
-
-
-
-
-
-
-
+## Volumes
 
 
 
